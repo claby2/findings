@@ -3,17 +3,16 @@ use dioxus::prelude::*;
 use dioxus_fullstack::prelude::*;
 
 fn main() {
-    let builder = LaunchBuilder::new(App);
-
     #[cfg(feature = "ssr")]
     {
-        builder
+        LaunchBuilder::new(App)
             .addr(std::net::SocketAddr::from(([0, 0, 0, 0], 8080)))
             .launch();
-        return;
     }
-
-    builder.launch();
+    #[cfg(not(feature = "ssr"))]
+    {
+        LaunchBuilder::new(App).launch();
+    }
 }
 
 #[derive(PartialEq)]
@@ -22,31 +21,25 @@ struct Finding {
     link: String,
 }
 
-#[inline_props]
-fn Findings<'a>(cx: Scope, findings: &'a [Finding]) -> Element {
-    cx.render(rsx! {
-        h1 {
-            class: "font-bold text-3xl mb-4",
-            "Interesting Findings"
-        }
-        p {
-            class: "mb-6 text-gray-400",
-            "A collection of interesting links I've accrued over the years."
-        }
-        ul {
-            class: "list-disc list-inside",
-            for finding in findings {
-                li {
-                    class: "mb-1 text-gray-400",
-                    a {
-                        class: "text-blue-400 hover:underline",
-                        href: "{finding.link}",
-                        "{finding.title}"
+fn Findings(cx: Scope) -> Element {
+    let findings = use_future(cx, (), |_| get_findings());
+    return cx.render(match findings.value() {
+        Some(Ok(findings)) => rsx! {
+            ul { class: "list-disc list-inside",
+                for finding in findings {
+                    li { class: "mb-1 text-gray-400",
+                        a {
+                            class: "text-blue-400 hover:underline",
+                            href: "{finding.link}",
+                            "{finding.title}"
+                        }
                     }
                 }
             }
-        }
-    })
+        },
+        Some(Err(err)) => rsx! { p { class: "text-red-400", "Error: {err}" } },
+        None => rsx! { p { "Loading..." } },
+    });
 }
 
 async fn get_findings() -> Result<Vec<Finding>, gloo_net::Error> {
@@ -54,44 +47,35 @@ async fn get_findings() -> Result<Vec<Finding>, gloo_net::Error> {
         .send()
         .await?;
 
-    let mut findings = vec![];
-
     let text = resp.text().await?;
-    for line in text.lines() {
-        if let Some((link, title)) = line.split_once(' ') {
-            findings.push(Finding {
-                title: title.to_string(),
-                link: link.to_string(),
-            });
-        }
-    }
+
+    let mut findings = text
+        .lines()
+        .filter_map(|line| {
+            if let Some((link, title)) = line.split_once(' ') {
+                Some(Finding {
+                    title: title.to_string(),
+                    link: link.to_string(),
+                })
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
 
     findings.sort_by(|a, b| a.title.cmp(&b.title));
     Ok(findings)
 }
 
 fn App(cx: Scope) -> Element {
-    let findings = use_future(cx, (), |_| get_findings());
-    let element = if let Some(findings) = findings.value() {
-        match findings {
-            Ok(findings) => cx.render(rsx! {
-                Findings { findings: findings }
-            }),
-            Err(err) => cx.render(rsx! {
-                p { "Error: {err}" }
-            }),
-        }
-    } else {
-        cx.render(rsx! {
-            p { "Loading..." }
-        })
-    };
     cx.render(rsx! {
-        main {
-            class: "bg-gradient-to-b from-gray-800 to-gray-900 min-h-screen dark",
-            div {
-                class: "mx-auto max-w-screen-sm p-8 text-gray-200",
-                element
+        main { class: "bg-gradient-to-b from-gray-800 to-gray-900 min-h-screen dark",
+            div { class: "mx-auto max-w-screen-sm p-8 text-gray-200",
+                h1 { class: "font-bold text-3xl mb-4", "Interesting Findings" }
+                p { class: "mb-6 text-gray-400",
+                    "A collection of interesting links I've accrued over the years."
+                }
+                Findings {}
             }
         }
     })
