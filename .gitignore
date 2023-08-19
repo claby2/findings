@@ -1,5 +1,4 @@
 /target
 /dist
-public/findings.txt
 public/tailwind.css
 docker-compose.yml

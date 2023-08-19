@@ -39,7 +39,7 @@ fn Findings<'a>(cx: Scope, findings: &'a [Finding]) -> Element {
 }
 
 async fn get_findings() -> Result<Vec<Finding>, gloo_net::Error> {
-    let resp = gloo_net::http::Request::get("/findings.txt").send().await?;
+    let resp = gloo_net::http::Request::get("/data/findings.txt").send().await?;
 
     let mut findings = vec![];
 
