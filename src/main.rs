@@ -1,8 +1,19 @@
 #![allow(non_snake_case)]
 use dioxus::prelude::*;
+use dioxus_fullstack::prelude::*;
 
 fn main() {
-    dioxus_web::launch(App);
+    let builder = LaunchBuilder::new(App);
+
+    #[cfg(feature = "ssr")]
+    {
+        builder
+            .addr(std::net::SocketAddr::from(([0, 0, 0, 0], 8080)))
+            .launch();
+        return;
+    }
+
+    builder.launch();
 }
 
 #[derive(PartialEq)]
@@ -39,7 +50,9 @@ fn Findings<'a>(cx: Scope, findings: &'a [Finding]) -> Element {
 }
 
 async fn get_findings() -> Result<Vec<Finding>, gloo_net::Error> {
-    let resp = gloo_net::http::Request::get("/data/findings.txt").send().await?;
+    let resp = gloo_net::http::Request::get("/data/findings.txt")
+        .send()
+        .await?;
 
     let mut findings = vec![];
 
