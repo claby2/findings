@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 use dioxus::prelude::*;
 use dioxus_fullstack::prelude::*;
+use serde::{Deserialize, Serialize};
 
 fn main() {
     #[cfg(feature = "ssr")]
@@ -15,8 +16,8 @@ fn main() {
     }
 }
 
-#[derive(PartialEq)]
-struct Finding {
+#[derive(PartialEq, Serialize, Deserialize)]
+pub struct Finding {
     title: String,
     link: String,
 }
@@ -42,12 +43,13 @@ fn Findings(cx: Scope) -> Element {
     });
 }
 
-async fn get_findings() -> Result<Vec<Finding>, gloo_net::Error> {
-    let resp = gloo_net::http::Request::get("/data/findings.txt")
-        .send()
-        .await?;
+#[server]
+async fn get_findings() -> Result<Vec<Finding>, ServerFnError> {
+    use std::fs;
+    use std::path::Path;
 
-    let text = resp.text().await?;
+    let path = Path::new("dist/data/findings.txt");
+    let text = fs::read_to_string(path)?;
 
     let mut findings = text
         .lines()
